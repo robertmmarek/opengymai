@@ -34,7 +34,7 @@ def decide_move(sess, obs):
 # training params
 
 max_moves_per_game = 50
-training_steps = 100
+training_steps = 1000
 policy_gradient_steps = 5
 policy_gradient_discount_rate = 0.3
 
@@ -48,7 +48,7 @@ def get_training_data(obs, moves, rewards, estimations):
         sel_moves = moves[i]
         x = list(sel_obs)+[sel_moves]
         sel_rewards = rewards[i:i+5]
-        y_ = [np.sum([val*np.power(policy_gradient_discount_rate, index) for index, val in enumerate(sel_rewards)])]
+        y_ = [np.sum([val*np.power(policy_gradient_discount_rate, index) for index, val in enumerate(sel_rewards)])+len(moves)]
         y = [estimations[i]]
 
         X.append(x)
@@ -63,7 +63,7 @@ with tf.Session() as sess:
     
     for step in range(training_steps):
         obs = env.reset()
-        env.render()
+        
         this_game_obs = []
         this_game_moves = []
         this_game_rewards = []
@@ -71,19 +71,30 @@ with tf.Session() as sess:
         for _ in range(max_moves_per_game):
             this_game_obs.append(obs)
             out_est, move = decide_move(sess, obs)
+            move = env.action_space.sample()
             this_game_estimations.append(out_est[move][0])
             this_game_moves.append(move)
-            print(move)
             obs = env.step(move)
-            reward = float(obs[1])
+            reward = 1./(1.+abs(obs[0][2]))#float(obs[1])
             is_end = obs[2]
             obs = obs[0]
             this_game_rewards.append(reward)
 
             if is_end:
+                this_game_rewards[-1] = -10
                 break
         print(_)
         X, Y_, Y = get_training_data(this_game_obs, this_game_moves, this_game_rewards, this_game_estimations)
         sess.run(train, feed_dict={input: X, y_reward: Y})
+
+    obs = env.reset()
+    for _ in range(100):
+        env.render()
+        out_est, move = decide_move(sess, obs)
+        obs = env.step(move)
+        obs = obs[0]
+    print(_)
+
+
 
 
