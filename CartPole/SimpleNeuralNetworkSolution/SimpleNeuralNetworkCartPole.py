@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import gym
+import matplotlib.pyplot as pp
 
 
 # actions: 0 left, 1 right
@@ -29,13 +30,14 @@ def decide_move(sess, obs):
     right_option = list(obs)+[1.]
 
     out = sess.run(output, feed_dict={input: [left_option, right_option]})
-    return out, np.argmax(out.reshape(2))
+    return out, np.argmin(out.reshape(2))
     
 # training params
 
 max_moves_per_game = 50
-training_steps = 1000
-policy_gradient_steps = 5
+training_steps = 3000
+games_to_play = 500
+policy_gradient_steps = 1
 policy_gradient_discount_rate = 0.3
 
 
@@ -46,9 +48,9 @@ def get_training_data(obs, moves, rewards, estimations):
     for i in range(len(rewards)-policy_gradient_steps):
         sel_obs = obs[i]
         sel_moves = moves[i]
-        x = list(sel_obs)+[sel_moves]
+        x = list(sel_obs)+[float(sel_moves)]
         sel_rewards = rewards[i:i+5]
-        y_ = [np.sum([val*np.power(policy_gradient_discount_rate, index) for index, val in enumerate(sel_rewards)])+len(moves)]
+        y_ = [np.sum([val*np.power(policy_gradient_discount_rate, index) for index, val in enumerate(sel_rewards)])]
         y = [estimations[i]]
 
         X.append(x)
@@ -61,7 +63,9 @@ with tf.Session() as sess:
     sess.run(initializer)
     env = gym.make('CartPole-v1')
     
-    for step in range(training_steps):
+    training_X = []
+    training_Y = []
+    for step in range(games_to_play):
         obs = env.reset()
         
         this_game_obs = []
@@ -75,24 +79,33 @@ with tf.Session() as sess:
             this_game_estimations.append(out_est[move][0])
             this_game_moves.append(move)
             obs = env.step(move)
-            reward = 1./(1.+abs(obs[0][2]))#float(obs[1])
+            reward = obs[0][2]#float(obs[1])
             is_end = obs[2]
             obs = obs[0]
             this_game_rewards.append(reward)
 
-            if is_end:
-                this_game_rewards[-1] = -10
-                break
-        print(_)
         X, Y_, Y = get_training_data(this_game_obs, this_game_moves, this_game_rewards, this_game_estimations)
-        sess.run(train, feed_dict={input: X, y_reward: Y})
+        training_X += X
+        training_Y += Y_
 
+    for i in range(training_steps):
+        sess.run(train, feed_dict={input: training_X, y_reward: training_Y})
+        res = sess.run(loss, feed_dict={input: training_X, y_reward: training_Y})
+        print("")
+        print(res)
+ 
     obs = env.reset()
     for _ in range(100):
         env.render()
         out_est, move = decide_move(sess, obs)
-        obs = env.step(move)
+        is_end = obs[2]
+        obs = env.step(0)
+
+        if is_end:
+            break
+        
         obs = obs[0]
+
     print(_)
 
 
