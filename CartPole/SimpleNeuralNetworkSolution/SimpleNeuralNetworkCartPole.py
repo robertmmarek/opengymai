@@ -11,7 +11,7 @@ import matplotlib.pyplot as pp
 input_size = 5
 hidden_size = 4
 output_size = 1
-learning_rate = 0.001
+learning_rate = 0.03
 
 input = tf.placeholder(tf.float32, shape=[None, input_size])
 hid_1 = tf.layers.dense(input, units=hidden_size, activation=tf.nn.relu)
@@ -35,7 +35,7 @@ def decide_move(sess, obs):
 # training params
 
 max_moves_per_game = 50
-training_steps = 3000
+training_steps = 500
 games_to_play = 500
 policy_gradient_steps = 1
 policy_gradient_discount_rate = 0.3
@@ -88,25 +88,32 @@ with tf.Session() as sess:
         training_X += X
         training_Y += Y_
 
+    from sklearn.model_selection import train_test_split
+
+    X_train, X_test, y_train, y_test = train_test_split(training_X, training_Y, test_size=0.2)
+
     for i in range(training_steps):
-        sess.run(train, feed_dict={input: training_X, y_reward: training_Y})
-        res = sess.run(loss, feed_dict={input: training_X, y_reward: training_Y})
-        print("")
-        print(res)
- 
-    obs = env.reset()
-    for _ in range(100):
-        env.render()
-        out_est, move = decide_move(sess, obs)
-        is_end = obs[2]
-        obs = env.step(0)
-
-        if is_end:
-            break
+        sess.run(train, feed_dict={input: X_train, y_reward: y_train})
+        res_train = sess.run(loss, feed_dict={input: X_train, y_reward: y_train})
+        res_test = sess.run(loss, feed_dict={input: X_test, y_reward: y_test})
+        print("train_loss: {} test_loss: {} %: {}".format(res_train, res_test, i/training_steps))
         
-        obs = obs[0]
+    number_of_show_plays = 10
 
-    print(_)
+    for play in range(number_of_show_plays):
+        obs = env.reset()
+        for _ in range(100):
+            env.render()
+            out_est, move = decide_move(sess, obs)
+            obs = env.step(move)
+            is_end = obs[2]
+
+            if is_end:
+                break
+            
+            obs = obs[0]
+
+        print(_)
 
 
 
