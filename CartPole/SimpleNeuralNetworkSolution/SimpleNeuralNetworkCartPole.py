@@ -35,13 +35,13 @@ def decide_move(sess, obs):
 # training params
 
 max_moves_per_game = 50
-training_steps = 100
-games_to_play = 100
+training_steps = 1500
+games_to_play = 1000
 policy_gradient_steps = 1
 policy_gradient_discount_rate = 0.3
 
 
-def get_training_data(obs, moves, rewards, estimations):
+def get_training_data(obs, moves, rewards):
     X = []
     Y_ = []
     Y = []
@@ -50,13 +50,11 @@ def get_training_data(obs, moves, rewards, estimations):
         sel_moves = moves[i]
         x = list(sel_obs)+[float(sel_moves)]
         y_ = [rewards[i]]
-        y = [estimations[i]]
 
         X.append(x)
         Y_.append(y_)
-        Y.append(y)
 
-    return X, Y_, Y
+    return X, Y_
 
 with tf.Session() as sess:
     sess.run(initializer)
@@ -71,20 +69,18 @@ with tf.Session() as sess:
         this_game_obs = []
         this_game_moves = []
         this_game_rewards = []
-        this_game_estimations = []
+
         for _ in range(max_moves_per_game):
             this_game_obs.append(obs)
-            out_est, move = decide_move(sess, obs)
             move = env.action_space.sample()
-            this_game_estimations.append(out_est[move][0])
             this_game_moves.append(move)
             obs = env.step(move)
-            reward = obs[0][2]#float(obs[1])
+            reward = obs[0][2]#angle
             is_end = obs[2]
             obs = obs[0]
             this_game_rewards.append(reward)
 
-        X, Y_, Y = get_training_data(this_game_obs, this_game_moves, this_game_rewards, this_game_estimations)
+        X, Y_ = get_training_data(this_game_obs, this_game_moves, this_game_rewards)
         training_X += X
         training_Y += Y_
 
