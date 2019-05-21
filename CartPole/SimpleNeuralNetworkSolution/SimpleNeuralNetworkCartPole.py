@@ -29,14 +29,14 @@ def decide_move(sess, obs):
     left_option = list(obs)+[0.]
     right_option = list(obs)+[1.]
 
-    out = sess.run(output, feed_dict={input: [left_option, right_option]})
+    out = sess.run(tf.square(output), feed_dict={input: [left_option, right_option]})
     return out, np.argmin(out.reshape(2))
     
 # training params
 
 max_moves_per_game = 50
-training_steps = 500
-games_to_play = 500
+training_steps = 100
+games_to_play = 100
 policy_gradient_steps = 1
 policy_gradient_discount_rate = 0.3
 
@@ -45,12 +45,11 @@ def get_training_data(obs, moves, rewards, estimations):
     X = []
     Y_ = []
     Y = []
-    for i in range(len(rewards)-policy_gradient_steps):
+    for i, move in enumerate(moves):
         sel_obs = obs[i]
         sel_moves = moves[i]
         x = list(sel_obs)+[float(sel_moves)]
-        sel_rewards = rewards[i:i+5]
-        y_ = [np.sum([val*np.power(policy_gradient_discount_rate, index) for index, val in enumerate(sel_rewards)])]
+        y_ = [rewards[i]]
         y = [estimations[i]]
 
         X.append(x)
@@ -66,6 +65,7 @@ with tf.Session() as sess:
     training_X = []
     training_Y = []
     for step in range(games_to_play):
+        print("playing progress: {}".format(step/games_to_play))
         obs = env.reset()
         
         this_game_obs = []
