@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import gym
 
 #network parameters
-number_of_inputs = 1
+number_of_inputs = 4
 lstm_size = 5
 number_of_logits = 2
 number_of_time_steps = 1
@@ -33,14 +33,57 @@ gradients = optimizer.compute_gradients(loss)
 modified_gradients = [(tf.multiply(tup[0], gradient_multiplier), tup[1]) for tup in gradients]
 train = optimizer.apply_gradients(modified_gradients)
 
-zero_states = [[[0.]*lstm_size], [[0]*lstm_size]]
+#training params
+number_of_games = 1000
+max_steps = 100
+reward_calc_len = 10
+discount = 0.4
+training_iterations = 1
+
+def calc_rewards(outpts, calc_len, discount=0.1):
+    rewards = []
+    for i, output in enumerate(outpts):
+        sel = outpts[i:min(i+calc_len, len(outpts))]
+        reward = np.sum([el*np.power(discount, i) for i, el in enumerate(sel)])
+        rewards.append(reward)
+
+    return rewards
+
+zero_states = [[[0.]*lstm_size], [[0.]*lstm_size]]
 
 init = tf.global_variables_initializer()
 with tf.Session() as sess:
     sess.run(init)
-    states = zero_states
-    out, states = sess.run([selection, lstm_states], feed_dict={inputs: [[[1]]], lstm_state_ph[0]: states[0], lstm_state_ph[1]: states[1]})
-    print(states)
-    out, states = sess.run([selection, lstm_states], feed_dict={inputs: [[[1]]], lstm_state_ph[0]: states[0], lstm_state_ph[1]: states[1]})
-    print(states)
+
+    env = gym.make('CartPole-v0')
+    for game in range(number_of_games):
+        states = zero_states
+        train_inputs = []
+        train_rewards = []
+
+        observation = env.reset()
+        #game
+        for step in range(max_steps):
+            out, states = sess.run([selection, lstm_states], feed_dict={inputs: [[observation]], 
+                                                             lstm_state_ph[0]: states[0], 
+                                                             lstm_state_ph[1]: states[1]})
+            observation, reward, done, info = env.step(int(out))
+            train_inputs.append(observation)
+            train_rewards.append(reward)
+
+            if done:
+                break
+
+        print(step)
+        rewards = calc_rewards(train_rewards, reward_calc_len, discount)
+        #training
+        for train_step in range(training_iterations):
+            states = zero_states
+            for ins, reward in zip(train_inputs, rewards):
+                out, states = sess.run([train, lstm_states], feed_dict={inputs: [[ins]], 
+                                                                        lstm_state_ph[0]: states[0], 
+                                                                        lstm_state_ph[1]: states[1],
+                                                                        gradient_multiplier: [reward]})
+
+    
     
