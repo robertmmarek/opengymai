@@ -36,7 +36,7 @@ train = optimizer.apply_gradients(modified_gradients)
 #training params
 number_of_games = 1000
 max_steps = 100
-reward_calc_len = 10
+reward_calc_len = 99
 discount = 0.4
 training_iterations = 1
 
@@ -55,7 +55,7 @@ init = tf.global_variables_initializer()
 with tf.Session() as sess:
     sess.run(init)
 
-    env = gym.make('CartPole-v0')
+    env = gym.make('CartPole-v1')
     for game in range(number_of_games):
         states = zero_states
         train_inputs = []
@@ -68,14 +68,20 @@ with tf.Session() as sess:
                                                              lstm_state_ph[0]: states[0], 
                                                              lstm_state_ph[1]: states[1]})
             observation, reward, done, info = env.step(int(out))
+            if not done:
+                train_rewards.append(reward)
+            elif step < 99:
+                train_rewards.append(-10.)
+            else:
+                train_rewards.append(1.)
             train_inputs.append(observation)
-            train_rewards.append(reward)
 
             if done:
                 break
 
         print(step)
         rewards = calc_rewards(train_rewards, reward_calc_len, discount)
+        #print(rewards)
         #training
         for train_step in range(training_iterations):
             states = zero_states
